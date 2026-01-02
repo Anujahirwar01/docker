@@ -1,0 +1,131 @@
+# docker-compose.yml - Orchestrates multi-container MERN application
+# This file defines how our services work together
+
+version: '3.8'  # Docker Compose file format version
+
+# Services define the containers that make up our application
+services:
+  
+  # MongoDB Database Service
+  mongo:
+    # Use official MongoDB image from Docker Hub
+    image: mongo:7.0
+    
+    # Container name for easier identification
+    container_name: mern-mongo
+    
+    # Restart policy - always restart if container stops
+    restart: unless-stopped
+    
+    # Environment variables for MongoDB
+    environment:
+      # Root username and password for MongoDB
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password123
+      # Default database name
+      MONGO_INITDB_DATABASE: mern-tutorial
+    
+    # Volume mounting for persistent data storage
+    # This ensures data survives container restarts
+    volumes:
+      - mongo_data:/data/db  # Named volume for MongoDB data
+      - ./mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+    
+    # Port mapping: host_port:container_port
+    ports:
+      - "27017:27017"
+    
+    # Networks this service belongs to
+    networks:
+      - mern-network
+
+  # Backend Express.js Service
+  backend:
+    # Build image from Dockerfile in ./backend directory
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    
+    container_name: mern-backend
+    restart: unless-stopped
+    
+    # Environment variables for backend
+    environment:
+      NODE_ENV: production
+      PORT: 5000
+      # Use MongoDB service name as hostname
+      MONGO_URL: mongodb://mongo:27017/mern-tutorial
+    
+    # Volume mounting for development (hot reload)
+    # Uncomment for development mode:
+    # volumes:
+    #   - ./backend:/app
+    #   - /app/node_modules
+    
+    ports:
+      - "5000:5000"
+    
+    # Dependencies - backend waits for mongo to be ready
+    depends_on:
+      - mongo
+    
+    networks:
+      - mern-network
+
+  # Frontend React Service
+  frontend:
+    # Build image from Dockerfile in ./frontend directory
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    
+    container_name: mern-frontend
+    restart: unless-stopped
+    
+    # Environment variables for frontend
+    environment:
+      # API URL pointing to backend service
+      REACT_APP_API_URL: http://localhost:5000/api
+    
+    # Volume mounting for development
+    # Uncomment for development mode:
+    # volumes:
+    #   - ./frontend:/app
+    #   - /app/node_modules
+    
+    ports:
+      - "3000:3000"
+    
+    # Frontend depends on backend being ready
+    depends_on:
+      - backend
+    
+    networks:
+      - mern-network
+
+# Volumes define persistent storage
+volumes:
+  # Named volume for MongoDB data persistence
+  mongo_data:
+    driver: local  # Store data on local machine
+
+# Networks define how containers communicate
+networks:
+  # Custom network for our MERN services
+  mern-network:
+    driver: bridge  # Bridge network allows container-to-container communication
+
+# DOCKER CONCEPTS EXPLAINED:
+# 
+# 1. SERVICES: Each service is a container with specific configuration
+# 2. IMAGES: Pre-built templates (mongo:7.0) or custom builds (./backend)
+# 3. VOLUMES: Persistent storage that survives container restarts
+# 4. NETWORKS: Enable secure communication between containers
+# 5. ENVIRONMENT VARIABLES: Configuration passed to containers
+# 6. DEPENDS_ON: Service startup order dependencies
+# 7. PORTS: Expose container ports to host machine
+# 8. RESTART POLICIES: How containers behave when they stop
+
+# DEVELOPMENT vs PRODUCTION:
+# - Production: Optimized builds, no volume mounting
+# - Development: Volume mounting for hot reload, debug modes

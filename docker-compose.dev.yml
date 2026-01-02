@@ -1,0 +1,46 @@
+# docker-compose.dev.yml - Development configuration
+# Extends the main docker-compose.yml with development-specific settings
+
+version: '3.8'
+
+services:
+  backend:
+    # Override build to include development dependencies
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    
+    # Environment for development
+    environment:
+      NODE_ENV: development
+      PORT: 5000
+      MONGO_URL: mongodb://mongo:27017/mern-tutorial
+    
+    # Volume mounting for hot reload development
+    volumes:
+      - ./backend:/app           # Sync source code
+      - /app/node_modules        # Preserve node_modules in container
+    
+    # Override command to use nodemon for hot reload
+    command: ["npm", "run", "dev"]
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev  # Use development Dockerfile
+    
+    environment:
+      REACT_APP_API_URL: http://localhost:5000/api
+      CHOKIDAR_USEPOLLING: true  # Enable polling for file changes in Docker
+    
+    # Volume mounting for React hot reload
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    
+    # Development command
+    command: ["npm", "start"]
+
+# Usage:
+# Development: docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
+# Production:  docker-compose up
